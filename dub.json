@@ -1,0 +1,14 @@
+{
+	"name": "xlsx",
+	"authors": [
+		"Rudolph"
+	],
+	"dependencies": {
+		"archive": "~>0.6.0"
+	},
+	"description": "Simple XLSX file parser.",
+	"copyright": "Copyright © 2017, Rudolph",
+	"license": "proprietary",
+	"target": "library",
+	"version": "1.0.0"
+}
