@@ -30,8 +30,12 @@ Sheet readSheet(string fileName, int sheetNum) {
     string xml = cast(string) sheet.data;
     
     validate(xml);
+
+    auto sstFile = zip.getFile("xl/sharedStrings.xml");
+    string sstXML = cast(string) sstFile.data;
+    string[] sst = parseStringTable(sstXML);
     
-    return parseSheetXML(xml);
+    return parseSheetXML(xml, sst);
 }
 
 /++
@@ -63,7 +67,7 @@ xmlString = The XML to parse.
 
 Returns: the equivalent sheet, as a two dimensional array of strings.
 +/
-Sheet parseSheetXML(string xmlString) {
+Sheet parseSheetXML(string xmlString, string[] sst) {
     Sheet temp;
     
     int cols = 0;
@@ -80,11 +84,21 @@ Sheet parseSheetXML(string xmlString) {
         auto theRow = new string[cols];
         rowTag.onStartTag["c"] = (ElementParser cTag) {
             Coord loc = parseLocation(cTag.tag.attr["r"]);
+            bool isRef = false;
+            if("t" in cTag.tag.attr)
+                isRef = cTag.tag.attr["t"] == "s";
+            
             string val;
             cTag.onEndTag["v"] = (in Element v) { val = v.text; };
             cTag.parse();
 
-            theRow[loc.column] = val;
+            if(isRef) {
+                int index = parse!int(val);
+                theRow[loc.column] = sst[index];
+            }
+            else {
+                theRow[loc.column] = val;
+            }
         };
         rowTag.parse();
         temp ~= theRow;
@@ -96,7 +110,7 @@ unittest {
     const string test = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac"><dimension ref="A1:C3"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="A4" sqref="A4"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25"/><sheetData><row r="1" spans="1:3" x14ac:dyDescent="0.25"><c r="A1"><v>1</v></c><c r="B1"><v>5</v></c><c r="C1"><v>7</v></c></row><row r="2" spans="1:3" x14ac:dyDescent="0.25"><c r="A2"><v>2</v></c><c r="B2"><v>4</v></c><c r="C2"><v>3</v></c></row><row r="3" spans="1:3" x14ac:dyDescent="0.25"><c r="A3"><v>7</v></c><c r="B3"><v>82</v></c><c r="C3"><v>1</v></c></row></sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
     Sheet testSheet = [["1","5","7"],["2","4","3"],["7","82","1"]];
-    Sheet result = parseSheetXML(test);
+    Sheet result = parseSheetXML(test, null);
     assert(result == testSheet);
 }
 
@@ -112,7 +126,7 @@ Returns: the id of the given sheet
 Exceptions:
 Exception if the given sheet name is not in the workbook.
 +/
-int getSheetId(string wbXml, string sheetName) {
+private int getSheetId(string wbXml, string sheetName) {
     int theId;
     auto doc = new DocumentParser(wbXml);
     doc.onEndTag["sheet"] = (in Element sheet) {
@@ -133,6 +147,27 @@ unittest {
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x15 xr2" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2"><fileVersion appName="xl" lastEdited="7" lowestEdited="7" rupBuild="18625"/><workbookPr defaultThemeVersion="166925"/><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="x15"><x15ac:absPath url="C:\Users\rraab.ADVILL\Documents\Code\D\dlang-xlsx\" xmlns:x15ac="http://schemas.microsoft.com/office/spreadsheetml/2010/11/ac"/></mc:Choice></mc:AlternateContent><bookViews><workbookView xWindow="0" yWindow="0" windowWidth="28800" windowHeight="12210" activeTab="1" xr2:uid="{045295F2-59E2-495E-BB00-149A1C289780}"/></bookViews><sheets><sheet name="Test1" sheetId="1" r:id="rId1"/><sheet name="Test2" sheetId="2" r:id="rId2"/></sheets><calcPr calcId="171027"/><extLst><ext uri="{140A7094-0E35-4892-8432-C4D2E57EDEB5}" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main"><x15:workbookPr chartTrackingRefBase="1"/></ext></extLst></workbook>`;
     assert(getSheetId(test, "Test1") == 1);
     assert(getSheetId(test, "Test2") == 2);
+}
+
+/++
+Parses a Shared String Table XML string into an array of strings. 
+
+Params:
+sst = The Shared String Table XML string to parse
+Returns: 
+A simple string array that can be indexed into from an "s" type cell's value (which is a zero-based index, thankfully)
++/
+private string[] parseStringTable(string sst) {
+    auto doc = new DocumentParser(sst);
+    string[] table;
+
+    doc.onEndTag["t"] = (in Element t) {
+		table ~= t.text();
+    };
+
+    doc.parse();
+
+    return table;
 }
 
 /++
