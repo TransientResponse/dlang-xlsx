@@ -15,7 +15,12 @@ import xlsx;
 void main() {
     //Reads sheet 1 from file "test.xlsx"
     writeln(readSheet("test.xlsx", 1));
+    
+    //Read a named sheet
+    writeln(readSheet("test.xlsx", "My Sheet"));
 }
 ```
+
+As of version 0.0.4 now properly reads from the Shared String Table for spreadsheets with many oft-repeating strings and/or whenever Excel decides to make use of it.
 
 Tested on Windows, but written purely in D with no external dependencies, so it should run on all platforms D supports.
