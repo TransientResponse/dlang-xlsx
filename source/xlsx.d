@@ -107,13 +107,15 @@ Sheet parseSheetXML(string xmlString, string[] sst) {
                 }
                 assert(loc.row >= 0 && loc.column >= 0);
                 range.popFront;
-                range.popFront;
-                assert(range.front.type == EntityType.text);
-                string text = range.front.text;
-                assert(theRow.length > 0);
-                assert(loc.column < theRow.length);
-                if(isref) theRow[loc.column] = sst[parse!int(text)];
-                else theRow[loc.column] = text;
+                if(range.front.type != EntityType.elementEnd) {
+                    range.popFront;
+                    assert(range.front.type == EntityType.text);
+                    string text = range.front.text;
+                    assert(theRow.length > 0);
+                    assert(loc.column < theRow.length);
+                    if(isref) theRow[loc.column] = sst[parse!int(text)];
+                    else theRow[loc.column] = text;
+                }
             }
         }
         else if(range.front.type == EntityType.elementEnd) {
