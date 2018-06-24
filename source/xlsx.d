@@ -2,12 +2,138 @@ module xlsx;
 
 import std.file, std.format, std.regex, std.conv, std.algorithm, std.range, std.utf;
 import archive.core, archive.zip;
+import std.traits;
 
 import dxml.parser;
 
 private struct Coord {
     int row;
     int column;
+}
+
+/**
+Class that contains a parsed XLSX sheet.
+
+Presents the rows as a range of string arrays.
+*/
+class XLSheet(R) if(isRandomAccessRange!R && isSomeChar!(ElementType!R)) {
+    /** The current parsed row. */
+    @property string[] front() {
+        return _row[];
+    }
+
+    /** Parses the next row. */
+    @property void popFront() {
+        processNextRow();
+    }
+
+    /** Indicates if there is another row to consume. */
+    @property bool emtpy() @safe const pure nothrow @nogc {
+        return !range.empty && !_hasRow;
+    }
+
+    private void calcDimensions() {
+        while(!range.empty) {
+            if(range.front.type == EntityType.elementStart) {
+                if(range.front.name == "dimension") {
+                    auto attr = range.front.attributes.front;
+                    assert(attr.name == "ref");
+                    auto dims = parseDimensions(attr.value);
+                    assert(dims.column > 0);
+                    cols = dims.column;
+                }
+            }
+        }
+    }
+
+    private void processNextRow() {
+        _hasRow = false;
+        while(!range.empty) {
+            if(range.front.type == EntityType.elementStart) {
+                if(range.front.name == "row") {
+                    assert(cols > 0);
+                    _hasRow = true;
+                    _row = new string[cols];
+                }
+                else if(range.front.name == "c") {
+                    auto attrs = range.front.attributes;
+                    Coord loc;
+                    bool isref;
+                    foreach(attr; attrs) {
+                        if(attr.name == "r") {
+                            loc = parseLocation(attr.value);
+                        }
+                        else if(attr.name == "t") {
+                            if(attr.value == "s") isref=true;
+                            else isref = false;
+                        }
+                    }
+                    assert(loc.row >= 0 && loc.column >= 0);
+                    range.popFront;
+                    if(range.front.type != EntityType.elementEnd) {
+                        range.popFront;
+                        assert(range.front.type == EntityType.text);
+                        string text = range.front.text;
+                        assert(_row.length > 0);
+                        assert(loc.column < _row.length);
+                        if(isref) _row[loc.column] = sst[parse!int(text)];
+                        else _row[loc.column] = text;
+                    }
+                }
+            }
+            range.popFront;
+        }
+    }
+
+    static XLSheet!(string[]) readFromFile(string fileName, int sheetNum) {
+        assert(sheetNum > 0);
+
+        auto zip = new ZipArchive(read(fileName));
+        auto sheet = zip.getFile(format!"xl/worksheets/sheet%d.xml"(sheetNum));
+        if(sheet is null) throw new Exception("Invalid sheet number");
+        //std.utf.validate!(ubyte[])(sheet.data);
+        string xml = cast(string) sheet.data;
+        
+        validate(xml);
+
+        auto sstFile = zip.getFile("xl/sharedStrings.xml");
+        string sstXML = cast(string) sstFile.data;
+
+        return readFromString(xml, parseStringTable(sstXML));
+    }
+
+    public static XLSheet!(string[]) readFromString(string sheetXML, const string[] sst) {
+        auto me = new XLSheet!(string[])();
+        me.sst = sst.dup;
+        me.range = parseXML!configSplitYes(sheetXML);
+        me.calcDimensions();
+        me.processNextRow();
+        return me;
+    }
+
+    public void makeFromString(string sheetXML, const string[] sst) {
+        this.sst = sst.dup;
+        range = parseXML!configSplitYes(sheetXML);
+        calcDimensions();
+        processNextRow();
+    }
+
+    private string[] _row;
+    private string[] sst;
+    private EntityRange!(configSplitYes, string) range;
+    private int cols;
+    private bool _hasRow;
+
+    //Range functions
+    @property auto save() {
+        XLSheet other = new XLSheet();
+        other.sst = sst.dup;
+        other._hasRow = _hasRow;
+        other.range = range.save();
+        other._row = _row.dup;
+        other.cols = cols;
+        return other;
+    }
 }
 
 /// Aliases a Sheet as a two-dimensional array of strings.
@@ -74,59 +200,13 @@ Returns: the equivalent sheet, as a two dimensional array of strings.
 Sheet parseSheetXML(string xmlString, string[] sst) {
     Sheet temp;
     
-    int cols = 0;
-
-    string[] theRow;
-
-    auto range = parseXML!configSplitYes(xmlString);
-    while(!range.empty) {
-        if(range.front.type == EntityType.elementStart) {
-            if(range.front.name == "dimension") {
-                auto attr = range.front.attributes.front;
-                assert(attr.name == "ref");
-                auto dims = parseDimensions(attr.value);
-                cols = dims.column;
-                assert(cols > 0);
-            }
-            else if(range.front.name == "row") {
-                assert(cols > 0);
-                theRow = new string[cols];
-            }
-            else if(range.front.name == "c") {
-                auto attrs = range.front.attributes;
-                Coord loc;
-                bool isref;
-                foreach(attr; attrs) {
-                    if(attr.name == "r") {
-                        loc = parseLocation(attr.value);
-                    }
-                    else if(attr.name == "t") {
-                        if(attr.value == "s") isref=true;
-                        else isref = false;
-                    }
-                }
-                assert(loc.row >= 0 && loc.column >= 0);
-                range.popFront;
-                if(range.front.type != EntityType.elementEnd) {
-                    range.popFront;
-                    assert(range.front.type == EntityType.text);
-                    string text = range.front.text;
-                    assert(theRow.length > 0);
-                    assert(loc.column < theRow.length);
-                    if(isref) theRow[loc.column] = sst[parse!int(text)];
-                    else theRow[loc.column] = text;
-                }
-            }
-        }
-        else if(range.front.type == EntityType.elementEnd) {
-            if(range.front.name == "row") {
-                temp ~= theRow;
-            }
-        }
-        range.popFront;
+    auto sheetRange = new XLSheet!(string[])();
+    sheetRange.makeFromString(xmlString, sst);
+    while(!sheetRange.empty) {
+        temp ~= sheetRange.front;
+        temp.popFront;
     }
-    
-    
+
     return temp;
 }
 unittest {
@@ -143,6 +223,8 @@ unittest {
     const Sheet result = parseSheetXML(test, ["Param", "Value"]);
     assert(result == expected);
 }
+
+
 
 /++
 Gets the numeric (> 1) id of a sheet with a given name.
