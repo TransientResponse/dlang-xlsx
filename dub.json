@@ -4,7 +4,8 @@
 		"Rudolph"
 	],
 	"dependencies": {
-		"archive": "~>0.6.0"
+		"archive": "~>0.6.0",
+		"dxml": "~>0.3.2"
 	},
 	"description": "Simple XLSX file parser.",
 	"copyright": "Copyleft 2017 Rudolph Raab. All wrongs reserved.",

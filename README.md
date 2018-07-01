@@ -6,6 +6,8 @@ Really defines just one useful function: `readSheet(string fileName, int sheet)`
 Build with `dub build`. I would have written it with only the D standard library (Phobos), but std.zip has issues with `expandedData`
 on members of XLSX files returning empty (zero-length) byte arrays. The Dub archive package, on the other hand, works perfectly.
 
+This branch (`dxml`) is, as the name implies, a switch to using [dxml](https://github.com/jmdavis/dxml) for XML parsing, rather than the long-deprecated `std.xml`.
+
 Example usage:
 
 ```
@@ -23,4 +25,4 @@ void main() {
 
 As of version 0.0.4 now properly reads from the Shared String Table for spreadsheets with many oft-repeating strings and/or whenever Excel decides to make use of it.
 
-Tested on Windows, but written purely in D with no external dependencies, so it should run on all platforms D supports.
+Tested on Windows and Linux (x64), but written purely in D with no external dependencies, so it should run on all platforms D supports.
