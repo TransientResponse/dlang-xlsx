@@ -108,7 +108,11 @@ Sheet parseSheetXML(string xmlString, string[] sst) {
                 assert(loc.row >= 0 && loc.column >= 0);
                 range.popFront;
                 if(range.front.type == EntityType.elementStart) {
-                    if(range.front.name == "f") {range.popFront; range.popFront; range.popFront;}
+                    if(range.front.name == "f") {
+                        range.popFront; 
+                        if(range.front.type == EntityType.text) range.popFront; 
+                        range.popFront;
+                    }
                     range.popFront;
                     assert(range.front.type == EntityType.text);
                     string text = range.front.text;
@@ -135,7 +139,7 @@ Sheet parseSheetXML(string xmlString, string[] sst) {
 }
 unittest {
     const string test = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac"><dimension ref="A1:C3"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="A4" sqref="A4"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25"/><sheetData><row r="1" spans="1:3" x14ac:dyDescent="0.25"><c r="A1"><v>1</v></c><c r="B1"><v>5</v></c><c r="C1"><v>7</v></c></row><row r="2" spans="1:3" x14ac:dyDescent="0.25"><c r="A2"><v>2</v></c><c r="B2"><v>4</v></c><c r="C2"><v>3</v></c></row><row r="3" spans="1:3" x14ac:dyDescent="0.25"><c r="A3"><v>7</v></c><c r="B3"><v>82</v></c><c r="C3"><v>1</v></c></row></sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac"><dimension ref="A1:C3"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="A4" sqref="A4"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25"/><sheetData><row r="1" spans="1:3" x14ac:dyDescent="0.25"><c r="A1"><v>1</v></c><c r="B1"><v>5</v></c><c r="C1"><v>7</v></c></row><row r="2" spans="1:3" x14ac:dyDescent="0.25"><c r="A2"><v>2</v></c><c r="B2"><v>4</v></c><c r="C2"><f t="shared" si="0" /><v>3</v></c></row><row r="3" spans="1:3" x14ac:dyDescent="0.25"><c r="A3"><v>7</v></c><c r="B3"><v>82</v></c><c r="C3"><v>1</v></c></row></sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
     const Sheet testSheet = [["1","5","7"],["2","4","3"],["7","82","1"]];
     const Sheet result = parseSheetXML(test, null);
     assert(result == testSheet);
