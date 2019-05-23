@@ -16,7 +16,7 @@ Class that contains a parsed XLSX sheet.
 
 Presents the rows as a range of string arrays.
 */
-class XLSheet(R) if(isRandomAccessRange!R && isSomeChar!(ElementType!R)) {
+class XLSheet(R) if(isRandomAccessRange!R && isSomeString!(ElementType!R)) {
     /** The current parsed row. */
     @property string[] front() {
         return _row[];
@@ -25,11 +25,16 @@ class XLSheet(R) if(isRandomAccessRange!R && isSomeChar!(ElementType!R)) {
     /** Parses the next row. */
     @property void popFront() {
         processNextRow();
+        rows--;
     }
 
     /** Indicates if there is another row to consume. */
     @property bool emtpy() @safe const pure nothrow @nogc {
         return !range.empty && !_hasRow;
+    }
+
+    @property size_t length() {
+        return rows;
     }
 
     private void calcDimensions() {
@@ -40,7 +45,9 @@ class XLSheet(R) if(isRandomAccessRange!R && isSomeChar!(ElementType!R)) {
                     assert(attr.name == "ref");
                     auto dims = parseDimensions(attr.value);
                     assert(dims.column > 0);
+                    assert(dims.row > 0);
                     cols = dims.column;
+                    rows = dims.row;
                 }
             }
         }
@@ -122,6 +129,7 @@ class XLSheet(R) if(isRandomAccessRange!R && isSomeChar!(ElementType!R)) {
     private string[] sst;
     private EntityRange!(configSplitYes, string) range;
     private int cols;
+    private size_t rows;
     private bool _hasRow;
 
     //Range functions
