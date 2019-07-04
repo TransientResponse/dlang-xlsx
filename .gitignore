@@ -9,3 +9,5 @@ __test__*__
 *.exe
 xlsx-test-library
 libxlsx.a
+
+dub\.selections\.json
