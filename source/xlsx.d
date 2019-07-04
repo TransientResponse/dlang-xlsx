@@ -204,13 +204,88 @@ private string[] parseStringTable(string sst) {
     auto range = parseXML!configSplitYes(sst);
 
     while(!range.empty) {
-        if(range.front.type == EntityType.elementStart && range.front.name == "t") {
-            range.popFront;
-            table ~= range.front.text;
+        if(range.front.type == EntityType.elementStart && range.front.name == "si") {
+            string sitext = "";
+            while(!((range.front.type == EntityType.elementEnd) && (range.front.name == "si"))) {
+                range.popFront;
+                if((range.front.type == EntityType.elementStart) && (range.front.name == "t")) {
+                    range.popFront;
+                    if(range.front.type != EntityType.elementEnd) sitext ~= range.front.text;
+                }
+            }
+            table ~= sitext;
         }
         range.popFront;
     }
     return table;
+}
+unittest {
+    string strtab = `
+    <sst>
+    <si>
+        <t>hjmvfjhfvngghnbuhgub</t>
+    </si>
+    <si>
+        <t>ZZZ</t>
+    </si>
+    <si>
+        <t>dfghdfgjkhdfdhgjhjnkm</t>
+    </si>
+    <si>
+        <t>dfghdfgjkhdfdhgj</t>
+    </si>
+    <si>
+        <r>
+            <t xml:space="preserve">          dsfghjkl</t>
+        </r>
+        <r>
+            <rPr>
+                <b/>
+                <i/>
+                <sz val="10"/>
+                <rFont val="Arial"/>
+                <family val="2"/>
+            </rPr>
+            <t/>
+        </r>
+    </si>
+    <si>
+        <t>pok,nhj,oiiumhvfdyunggbyuh jcvgb</t>
+    </si>
+    <si>
+        <r>
+            <t xml:space="preserve">          dsfghjkl</t>
+        </r>
+        <r>
+            <rPr>
+                <b/>
+                <i/>
+                <sz val="10"/>
+                <rFont val="Arial"/>
+                <family val="2"/>
+            </rPr>
+            <t/>
+        </r>
+    </si>
+    <si>
+        <r>
+            <t>this should be</t>
+        </r>
+        <r>
+            <rPr>
+                <sz val="10"/>
+                <rFont val="Arial"/>
+                <family val="2"/>
+            </rPr>
+            <t> stuck together</t>
+        </r>
+    </si>
+    </sst>
+    `;
+    string[] result = parseStringTable(strtab);
+    assert(result.length == 8);
+    assert(result[0] == "hjmvfjhfvngghnbuhgub");
+    assert(result[7] == "this should be stuck together");
 }
 
 /++
