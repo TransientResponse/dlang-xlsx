@@ -333,7 +333,7 @@ private Coord parseDimensions(string dims) {
 }
 
 private int columnNameToNumber(string col) {
-    reverse(col.dup);
+    col = reverse(col.dup);
     int num;
     foreach(i, c; col) {
         num += (c - 'A' + 1)*26^^i;
@@ -342,5 +342,5 @@ private int columnNameToNumber(string col) {
 }
 
 unittest {
-    assert(columnNameToNumber("AA") == 27);
+    assert(columnNameToNumber("AC") == 29);
 }
